@@ -1,0 +1,16 @@
+name: dns-failure-vendor
+owner: onboarding-oncall
+hypothesis: If the KYC vendor's DNS fails, onboarding requests are queued for retry and none return 5xx to users.
+environment: staging
+namespace: onboarding
+selector: { app.kubernetes.io/name: onboarding-app }
+fault: dns-error
+params: { patterns: ["*.kyc-vendor.example.com"] }
+max_targets: 2
+duration_seconds: 300
+steady_state:
+  - { name: no onboarding 5xx, op: "<", threshold: 0.001,
+      query: 'sum(rate(http_requests_total{namespace="onboarding",code=~"5.."}[1m])) or vector(0)' }
+abort_if:
+  - { name: onboarding 5xx above 1/s, op: ">", threshold: 1,
+      query: 'sum(rate(http_requests_total{namespace="onboarding",code=~"5.."}[1m])) or vector(0)' }
