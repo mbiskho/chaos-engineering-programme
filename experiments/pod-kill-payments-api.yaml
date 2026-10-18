@@ -1,0 +1,18 @@
+name: pod-kill-payments-api
+owner: payments-oncall
+hypothesis: When one payments-api pod is killed, error rate stays below 1% and p99 latency below 300 ms.
+environment: staging
+namespace: payments
+selector: { app.kubernetes.io/name: payments-api }
+fault: pod-kill
+max_targets: 1
+duration_seconds: 120
+recovery_seconds: 60
+steady_state:
+  - { name: error rate under 1%, op: "<", threshold: 0.01,
+      query: 'sum(rate(http_requests_total{namespace="payments",code=~"5.."}[1m])) / sum(rate(http_requests_total{namespace="payments"}[1m]))' }
+  - { name: p99 under 300ms, op: "<", threshold: 0.3,
+      query: 'histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{namespace="payments"}[1m])))' }
+abort_if:
+  - { name: error rate above 5%, op: ">", threshold: 0.05,
+      query: 'sum(rate(http_requests_total{namespace="payments",code=~"5.."}[1m])) / sum(rate(http_requests_total{namespace="payments"}[1m]))' }
