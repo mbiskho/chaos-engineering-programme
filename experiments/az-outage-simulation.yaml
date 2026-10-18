@@ -1,0 +1,16 @@
+name: az-outage-simulation
+owner: platform-oncall
+hypothesis: If pods in one availability zone lose network, traffic shifts to the other zones and availability stays above 99.5%.
+environment: staging
+namespace: payments
+selector: { topology.kubernetes.io/zone: ap-southeast-1a }
+fault: network-partition
+params: { direction: both }
+max_targets: 10
+duration_seconds: 600
+steady_state:
+  - { name: availability above 99.5%, op: ">", threshold: 0.995,
+      query: '1 - (sum(rate(http_requests_total{namespace="payments",code=~"5.."}[2m])) / sum(rate(http_requests_total{namespace="payments"}[2m])))' }
+abort_if:
+  - { name: availability below 97%, op: "<", threshold: 0.97,
+      query: '1 - (sum(rate(http_requests_total{namespace="payments",code=~"5.."}[2m])) / sum(rate(http_requests_total{namespace="payments"}[2m])))' }
