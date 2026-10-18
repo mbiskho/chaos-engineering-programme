@@ -1,0 +1,16 @@
+name: network-latency-db
+owner: platform-oncall
+hypothesis: With 200 ms added latency to Postgres, request timeouts and retries keep error rate below 1%.
+environment: staging
+namespace: payments
+selector: { app.kubernetes.io/name: payments-api }
+fault: network-delay
+params: { latency: 200ms, jitter: 20ms, target_selector: { app: postgres }, target_namespace: data }
+max_targets: 1
+duration_seconds: 300
+steady_state:
+  - { name: error rate under 1%, op: "<", threshold: 0.01,
+      query: 'sum(rate(http_requests_total{namespace="payments",code=~"5.."}[1m])) / sum(rate(http_requests_total{namespace="payments"}[1m]))' }
+abort_if:
+  - { name: error rate above 5%, op: ">", threshold: 0.05,
+      query: 'sum(rate(http_requests_total{namespace="payments",code=~"5.."}[1m])) / sum(rate(http_requests_total{namespace="payments"}[1m]))' }
